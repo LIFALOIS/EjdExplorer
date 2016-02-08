@@ -1,277 +1,14 @@
-1:
-    'Ejendomsniveau - Antal bygninger kan ikke være negativt.'
-  '------------------------------------------------------------'
-
-Select  KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], BYG_ANT AS [Antal Bygninger (felt 120)]
-From CO10000T
-Where BYG_ANT  < 0 AND Kommune_nr = @Komnr
-Group by Kommune_nr, Ejd_nr, BYG_ANT
-ORDER BY KOMMUNE_NR, EJD_NR
-
-2:
-'Ejendomsniveau - Ejendomme med et ejendomsnummer der ikke' 
-'eksisterer i ESR.' 
-'---------------------------------------------------------'
-  
-SELECT A.KOMMUNE_NR AS [Kommune nr.], A.EJD_NR AS [Ejendoms nr. (felt 101)]
-FROM CO10000T as a
-WHERE NOT EXISTS
-   (SELECT *
-   FROM CO11500T as b  
-   WHERE   b.Kommune_nr = a.Kommune_nr and
-     b.Ejd_nr = a.Ejd_nr) AND A.KOMMUNE_NR = @KOMNR
-Group by a.Kommune_nr, a.Ejd_nr
-ORDER BY a.KOMMUNE_NR, a.EJD_NR
-
-3:
-'Ejendomsniveau - Ejendomme med ikke korrekt afløbsforholds kode.'
-'----------------------------------------------------------------'
-
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_AFLOEB_KODE AS [Afløbsforhold (felt 104)]
-FROM         CO10000T
-WHERE     (NOT (EJD_AFLOEB_KODE LIKE '20')) AND (NOT (EJD_AFLOEB_KODE LIKE '10')) AND (NOT (EJD_AFLOEB_KODE LIKE '11')) AND 
-          (NOT (EJD_AFLOEB_KODE LIKE '21')) AND (NOT (EJD_AFLOEB_KODE LIKE '29')) AND (NOT (EJD_AFLOEB_KODE LIKE '30')) AND 
-          (NOT (EJD_AFLOEB_KODE LIKE '31')) AND (NOT (EJD_AFLOEB_KODE LIKE '32')) AND (NOT (EJD_AFLOEB_KODE LIKE '70')) AND 
-          (NOT (EJD_AFLOEB_KODE LIKE '75')) AND (NOT (EJD_AFLOEB_KODE LIKE '80')) AND (NOT (EJD_AFLOEB_KODE LIKE '90')) AND 
-          (NOT (EJD_AFLOEB_KODE LIKE '0')) AND (LOGISK_TJEK LIKE 'Y') AND Kommune_nr = @Komnr
-GROUP BY KOMMUNE_NR, EJD_NR, EJD_AFLOEB_KODE, LOGISK_TJEK 
-ORDER BY KOMMUNE_NR, EJD_NR
-
-4:
-'indberettes på både ejendommen og de enkelte bygninger. Kode 75 indberettes for' 
-'ejendomme, hvor der er registreret forskellige afløbsforhold på de enkelte bygninger.'
-'Der kan kun indberettes med denne kode på ejendomsniveau, hvis afløbsforholdet' 
-'samtidig registreres på bygningsniveau og koderne ikke er ens på mindst to bygninger.'
-'-------------------------------------------------------------------------------------'
-
-SELECT     CO10000T.KOMMUNE_NR AS [Kommune nr.], CO10000T.EJD_NR AS [Ejendoms nr.], CO10000T.EJD_AFLOEB_KODE AS [Afløbsforhold (felt 104)], CO10100T.BYG_AFLOEB_KODE AS [Afløbsforhold (felt 248)]
-FROM         CO10000T INNER JOIN
-                      CO10100T ON CO10000T.KOMMUNE_NR = CO10100T.KOMMUNE_NR AND CO10000T.EJD_NR = CO10100T.EJD_NR
-WHERE     (CO10000T.EJD_AFLOEB_KODE NOT LIKE CO10100T.BYG_AFLOEB_KODE) AND (CO10100T.BYG_AFLOEB_KODE NOT LIKE '') AND 
-          (CO10000T.EJD_AFLOEB_KODE NOT LIKE '75') AND (CO10100T.LOGISK_TJEK LIKE 'Y') AND CO10000T.KOMMUNE_NR = @KOMNR
-GROUP BY CO10000T.KOMMUNE_NR, CO10000T.EJD_NR, CO10000T.EJD_AFLOEB_KODE, CO10100T.BYG_AFLOEB_KODE, CO10100T.LOGISK_TJEK 
-ORDER BY CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-5:
-'Ejendomsniveau - Antallet af beboelseslejligheder kan ikke være' 
-'negativt.' 
-'----------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_BEBOLEJL_ANT AS [Antal beboelseslejligheder (felt 126)]
-From CO10000T
-Where EJD_BEBOLEJL_ANT  < 0 AND KOMMUNE_NR = @KOMNR
-Group by CO10000T.Kommune_nr, CO10000T.Ejd_nr, CO10000T.EJD_BEBOLEJL_ANT 
-Order by CO10000T.Kommune_nr, CO10000T.ejd_nr
-
-6:
-'Ejendomsniveau - Ejendomme hvor der er uoverensstemmelse'
-'mellem antallet af beboelseslejligheder registreret på'
-'ejendomsniveau og antallet enheder med eget køkken.' 
-'--------------------------------------------------------'
-
-SELECT     ejd.KOMMUNE_NR AS [Kommune nr.], ejd.EJD_NR AS [Ejendoms nr.], ejd.VEJ_KODE AS Vejkode, ejd.HUS_NR AS [Husnr.], 
-                      COUNT(enh.BOLIGTYPE_KODE) AS [Boligtype (felt 308)], ejd.EJD_BEBOLEJL_ANT AS [Ejendommens Beboelseslejligheder (felt 126)]
-FROM         CO10000T ejd INNER JOIN
-                      CO10200T enh ON ejd.KOMMUNE_NR = enh.KOMMUNE_NR AND ejd.EJD_NR = enh.EJD_NR
-WHERE     (enh.BOLIGTYPE_KODE = 1 OR
-                      enh.BOLIGTYPE_KODE = 2) AND (enh.HENVIS_VEJ_KODE = 0) and enh.kommune_nr = @komnr
-GROUP BY enh.KOMMUNE_NR, enh.EJD_NR, ejd.KOMMUNE_NR, ejd.EJD_NR, ejd.VEJ_KODE, ejd.HUS_NR, ejd.EJD_BEBOLEJL_ANT
-HAVING      (COUNT(enh.BOLIGTYPE_KODE) <> ejd.EJD_BEBOLEJL_ANT)
-ORDER BY ejd.KOMMUNE_NR, ejd.EJD_NR, ejd.VEJ_KODE, ejd.HUS_NR
-
-7:
-'Ejendomsniveau - Samlet bygningsareal kan ikke være negativt.'
-'-------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_BEBYG_ARL_SAML AS [Bebygget areal (felt 128)]
-From CO10000T
-Where EJD_BEBYG_ARL_SAML < 0 AND Kommune_nr = @Komnr
-Group by Kommune_nr, Ejd_nr, EJD_BEBYG_ARL_SAML
-Order by Kommune_nr, Ejd_nr
-
-8:
-'Ejendomsniveau - Samlet boligareal kan ikke være negativt.'
-'---------------------------------------------------------'
-
-Select CO10000T.KOMMUNE_NR AS [Kommune nr.], CO10000T.EJD_NR AS [Ejendoms nr.], CO10000T.EJD_BOLIG_ARL_SAML AS [Samlet boligareal (felt 124)]
-From CO10000T
-Where CO10000T.EJD_BOLIG_ARL_SAML < 0 AND CO10000T.KOMMUNE_NR = @Komnr
-Group by CO10000T.Kommune_nr, CO10000T.Ejd_nr, CO10000T.EJD_BOLIG_ARL_SAML
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-9:
-'Ejendomsniveau - Bebygget areal kan ikke være under 0.'
-'---------------------------------------------------------'
-
-Select CO10000T.KOMMUNE_NR AS [Kommune nr.], CO10000T.EJD_NR AS [Ejendoms nr.], CO10000T.EJD_BYG_ARL_SAML AS [Bebygget areal (felt 130)]
-From CO10000T
-Where CO10000T.EJD_BYG_ARL_SAML < 0 AND Kommune_nr = @Komnr
-Group By Kommune_nr, Ejd_nr, EJD_BYG_ARL_SAML
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-10:
-'Ejendomsniveau - Samlet erhvervsareal kan ikke være negativt.'
-'-------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_ERHV_ARL_SAML AS [Samlet erhvervsareal (felt 129)]
-From CO10000T
-Where EJD_ERHV_ARL_SAML < 0 AND Kommune_nr = @Komnr
-Group by Kommune_nr, Ejd_nr, EJD_ERHV_ARL_SAML 
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-11:
-'Ejendomsniveau - Ejendomme med ikke korrekt afløbsforholds kode.'
-'----------------------------------------------------------------'
-
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_VANDFORSY_KODE AS [Vandforsyning (felt 103)]
-FROM         CO10000T
-WHERE     (NOT (EJD_VANDFORSY_KODE LIKE '1')) AND (NOT (EJD_VANDFORSY_KODE LIKE '2')) AND (NOT (EJD_VANDFORSY_KODE LIKE '3')) AND 
-          (NOT (EJD_VANDFORSY_KODE LIKE '4')) AND (NOT (EJD_VANDFORSY_KODE LIKE '6')) AND (NOT (EJD_VANDFORSY_KODE LIKE '7')) AND 
-          (NOT (EJD_VANDFORSY_KODE LIKE '')) AND (NOT (EJD_VANDFORSY_KODE LIKE '9')) AND (LOGISK_TJEK LIKE 'Y') AND Kommune_nr = @KOMNR
-GROUP BY KOMMUNE_NR, EJD_NR, EJD_VANDFORSY_KODE, LOGISK_TJEK 
-ORDER BY KOMMUNE_NR, EJD_NR
-
-12:
-'Ejendomsniveau - Ejendomme med ikke korrekt ejerforholdskode.'
-'-------------------------------------------------------------'
-
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJERFORHOLD_KODE AS [Ejerforhold (felt 102)]
-FROM         CO10000T
-WHERE     (NOT (EJERFORHOLD_KODE   LIKE '10')) AND (NOT (EJERFORHOLD_KODE   LIKE '20')) AND (NOT (EJERFORHOLD_KODE   LIKE '30')) AND 
-          (NOT (EJERFORHOLD_KODE   LIKE '40')) AND (NOT (EJERFORHOLD_KODE   LIKE '41')) AND (NOT (EJERFORHOLD_KODE   LIKE '50')) AND 
-          (NOT (EJERFORHOLD_KODE   LIKE '60')) AND (NOT (EJERFORHOLD_KODE   LIKE '70')) AND (NOT (EJERFORHOLD_KODE   LIKE '80')) AND 
-	  (NOT (EJERFORHOLD_KODE   LIKE '90')) AND (NOT (EJERFORHOLD_KODE   LIKE '')) AND KOMMUNE_NR = @KOMNR
-GROUP BY KOMMUNE_NR, EJD_NR, EJERFORHOLD_KODE 
-ORDER BY KOMMUNE_NR, EJD_NR
-
-13:
-'Ejendomsniveau - Antallet af ejerlejligheder kan ikke være' 
-'negativt.' 
-'----------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJERLEJL_ANT AS [Antal ejerlejligheder (felt 121)]
-From CO10000T
-Where EJERLEJL_ANT < 0 AND Kommune_nr = @Komnr
-Group by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR, CO10000T.EJERLEJL_ANT  
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-14:
-'Ejendomsniveau - Antallet af enkeltværelser kan ikke være' 
-'negativt.' 
-'---------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], ENKELTVAER_ANT AS [Antal enkeltværelser (felt 122)]
-From CO10000T
-Where ENKELTVAER_ANT < 0 AND KOMMUNE_NR = @KOMNR
-Group by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR, ENKELTVAER_ANT 
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-15:
-'Ejendomsniveau - Antallet af erhvervsenheder kan ikke være' 
-'negativt.' 
-'----------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], ERHV_ENH_ANT AS [Antal erhvervsenheder (felt 127)]
-From CO10000T
-Where ERHV_ENH_ANT < 0 AND Kommune_nr = @Komnr
-Group by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR, ERHV_ENH_ANT
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-16:
-'Ejendomsniveau - Tilnærmet etageareal kan ikke være negativt.'
-'-------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], ETAGE_ARL_TILN AS [Tilnærmet etageareal (felt 123)]
-From CO10000T
-Where ETAGE_ARL_TILN < 0 AND CO10000T.KOMMUNE_NR = @KOMNR
-Group by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR, ETAGE_ARL_TILN 
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-17:
-'Ejendomsniveau - Antallet af olietanke kan ikke være' 
-'negativt.' 
-'----------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], OLIETANK_ANT AS [Tanke i alt (felt 119)]
-From CO10000T
-Where OLIETANK_ANT < 0 AND (LOGISK_TJEK LIKE 'Y') AND KOMMUNE_NR = @KOMNR 
-Group by KOMMUNE_NR, EJD_NR, OLIETANK_ANT, LOGISK_TJEK
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-18:
-'Ejendomsniveau - Antallet af småbygninger kan ikke være' 
-'negativt.' 
-'-------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], SMAABYG_ANT AS [Antal småbygninger (125)]
-From CO10000T
-Where SMAABYG_ANT < 0 AND Kommune_nr = @KOMNR
-Group by Kommune_nr, Ejd_nr, SMAABYG_ANT
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-19:
-'Ejendomsniveau - Samlet småbygningsareal kan ikke være negativt.'
-'----------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], SMAABYG_ARL_SAML AS [Samlet småbygningsareal (felt 131)] 
-From CO10000T
-Where SMAABYG_ARL_SAML < 0 AND KOMMUNE_NR = @KOMNR
-Group by Kommune_nr, Ejd_nr, SMAABYG_ARL_SAML
-Order by CO10000T.KOMMUNE_NR, CO10000T.EJD_NR
-
-20:
-'Ejendomsniveau - Antallet af enheder pr. ejendom kan ikke være negativt.'
-'------------------------------------------------------------------------'
-
-Select KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], EJD_ENH_ANT AS [Antal enheder pr. ejendom]
-From CO10000T
-Where EJD_ENH_ANT < 0 AND CO10000T.KOMMUNE_NR = @KOMNR
-GROUP BY KOMMUNE_NR, EJD_NR, EJD_ENH_ANT
-ORDER BY KOMMUNE_NR, EJD_NR
-
-21:
-'Bygningsniveau - Bygning(er) med ikke korrekt afløbsforholds kode.'
-'----------------------------------------------------------------'
-
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], BYG_NR AS [Bygningsnr.], BYG_AFLOEB_KODE AS [Afløbsforhold (felt 248)]
-FROM         CO10100T
-WHERE     (NOT (BYG_AFLOEB_KODE LIKE '20')) AND (NOT (BYG_AFLOEB_KODE LIKE '10')) AND (NOT (BYG_AFLOEB_KODE LIKE '11')) AND 
-          (NOT (BYG_AFLOEB_KODE LIKE '21')) AND (NOT (BYG_AFLOEB_KODE LIKE '29')) AND (NOT (BYG_AFLOEB_KODE LIKE '30')) AND 
-          (NOT (BYG_AFLOEB_KODE LIKE '31')) AND (NOT (BYG_AFLOEB_KODE LIKE '32')) AND (NOT (BYG_AFLOEB_KODE LIKE '70')) AND 
-          (NOT (BYG_AFLOEB_KODE LIKE '75')) AND (NOT (BYG_AFLOEB_KODE LIKE '80')) AND (NOT (BYG_AFLOEB_KODE LIKE '90')) AND 
-          (NOT (BYG_AFLOEB_KODE LIKE '0'))  AND (BYG_ANVEND_KODE NOT LIKE '320') AND (BYG_ANVEND_KODE NOT LIKE '910') AND 
-          (BYG_ANVEND_KODE NOT LIKE '920') AND  (BYG_ANVEND_KODE NOT LIKE '930')AND (NOT (BYG_AFLOEB_KODE LIKE '')) AND 
-          (LOGISK_TJEK LIKE 'Y') AND Kommune_nr = @Komnr
-GROUP BY KOMMUNE_NR, EJD_NR, BYG_NR, BYG_AFLOEB_KODE, LOGISK_TJEK 
-ORDER BY KOMMUNE_NR, EJD_NR
-
-22:
-'Bygningsniveau - Bygning(er) med ikke korrekt afløbsforholds kode.'
-'Kode 75 indberettes for ejendomme, hvor der er registreret forskellige afløbsforhold på de enkelte bygninger.'
-'Der kan kun indberettes med denne kode på ejendomsniveau, hvis afløbsforholdet samtidig registreres på bygningsniveau' 
-'og koderne ikke er ens på mindst to bygninger.'
-'---------------------------------------------------------------------------------------------------------------------'
-
-SELECT     CO10100T.KOMMUNE_NR AS [Kommune nr.], CO10100T.EJD_NR AS [Ejendoms nr.], CO10100T.BYG_NR AS [Bygningsnr.], BYG_AFLOEB_KODE AS [Afløbsforhold bygning (felt 248)], CO10000T.EJD_AFLOEB_KODE AS [Afløbsforhold ejendom (felt 104)]
-FROM         CO10000T INNER JOIN
-                      CO10100T ON CO10000T.KOMMUNE_NR = CO10100T.KOMMUNE_NR AND CO10000T.EJD_NR = CO10100T.EJD_NR
-WHERE     (CO10000T.EJD_AFLOEB_KODE = '75') AND 
-	  (CO10100T.BYG_AFLOEB_KODE = '')   AND 
-          (BYG_ANVEND_KODE NOT LIKE '320') AND 
-          (BYG_ANVEND_KODE NOT LIKE '910') AND 
-          (BYG_ANVEND_KODE NOT LIKE '920') AND 
-          (BYG_ANVEND_KODE NOT LIKE '930') AND 
-          (CO10100T.LOGISK_TJEK LIKE 'Y') AND 
-           CO10100T.KOMMUNE_NR = @KOMNR
-GROUP BY CO10100T.KOMMUNE_NR, CO10100T.EJD_NR, CO10100T.BYG_NR, CO10100T.BYG_AFLOEB_KODE, CO10000T.EJD_AFLOEB_KODE, CO10100T.LOGISK_TJEK  
-ORDER BY CO10100T.KOMMUNE_NR, CO10100T.EJD_NR
+/*
+Er lavet til det gamle BBR
+Der skal laves omskrivning af en række af SQL'erne, for at det kan lave kontrol af det nye BBR
+*/
 
 23:
 'Bygningsniveau - Bygning(er) med ikke korrekt bygningsanvendelses kode.'
 '-----------------------------------------------------------------------'
 
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], BYG_NR AS [Bygningsnr.], BYG_ANVEND_KODE AS [Byg. anvendelses kode (felt 203)]
-FROM         CO10100T
+SELECT     EsreJDNR , bygningsnr , BYG_ANVEND_KODE
+FROM         CO40100T
 WHERE     (NOT (BYG_ANVEND_KODE LIKE '110')) AND (NOT (BYG_ANVEND_KODE LIKE '120')) AND (NOT (BYG_ANVEND_KODE LIKE '130')) AND 
                       (NOT (BYG_ANVEND_KODE LIKE '140')) AND (NOT (BYG_ANVEND_KODE LIKE '150')) AND (NOT (BYG_ANVEND_KODE LIKE '160')) AND 
                       (NOT (BYG_ANVEND_KODE LIKE '190')) AND (NOT (BYG_ANVEND_KODE LIKE '210')) AND (NOT (BYG_ANVEND_KODE LIKE '220')) AND 
@@ -281,22 +18,23 @@ WHERE     (NOT (BYG_ANVEND_KODE LIKE '110')) AND (NOT (BYG_ANVEND_KODE LIKE '120
                       (NOT (BYG_ANVEND_KODE LIKE '530')) AND (NOT (BYG_ANVEND_KODE LIKE '540')) AND (NOT (BYG_ANVEND_KODE LIKE '590')) AND 
                       (NOT (BYG_ANVEND_KODE LIKE '910')) AND (NOT (BYG_ANVEND_KODE LIKE '920')) AND (NOT (BYG_ANVEND_KODE LIKE '930')) AND 
                       (NOT (BYG_ANVEND_KODE LIKE '390')) AND (NOT (BYG_ANVEND_KODE LIKE '420')) AND (NOT (BYG_ANVEND_KODE LIKE '430')) AND 
-                      (NOT (BYG_ANVEND_KODE LIKE '440')) AND KOMMUNE_NR = @KOMNR
-Group BY Kommune_nr, BYG_NR, EJD_NR, BYG_ANVEND_KODE 
-Order BY Kommune_nr, EJd_nr
+                      (NOT (BYG_ANVEND_KODE LIKE '440'))
+Group BY EsreJDNR , bygningsnr , BYG_ANVEND_KODE
+Order BY EsreJDNR 
 
 24:
 'Bygningsniveau - Bygning(er) med ikke korrekt bygningsanvendelses kode. Samlet erhvervsareal overstiger samlet boligareal.'
 '--------------------------------------------------------------------------------------------------------------------------'
 
-SELECT     KOMMUNE_NR AS [Kommune nr.], EJD_NR AS [Ejendoms nr.], CO10100T.BYG_NR AS [Bygningsnr.], BYG_ANVEND_KODE AS [Byg. anvendelses kode (felt 203)], BYG_BOLIG_ARL_SAML AS [Samlet boligareal (felt 217)], ERHV_ARL_SAML AS [Samlet erhvervsareal (felt 218)]
-FROM         CO10100T
+SELECT    EsreJDNR , bygningsnr , BYG_ANVEND_KODE, BYG_BOLIG_ARL_SAML , ERHV_ARL_SAML 
+FROM         CO40100T
 WHERE     ((BYG_ANVEND_KODE LIKE '110') or (BYG_ANVEND_KODE LIKE '120') or 
            (BYG_ANVEND_KODE LIKE '130') or (BYG_ANVEND_KODE LIKE '140') or 
            (BYG_ANVEND_KODE LIKE '150') or (BYG_ANVEND_KODE LIKE '190')) and 
-	   (ERHV_ARL_SAML > BYG_BOLIG_ARL_SAML) AND KOMMUNE_NR = @KOMNR
-Group by kommune_nr, Ejd_nr, CO10100T.BYG_NR, BYG_BOLIG_ARL_SAML, ERHV_ARL_SAML, BYG_ANVEND_KODE 
-Order by kommune_nr, Ejd_nr, CO10100T.BYG_NR
+	   (ERHV_ARL_SAML > BYG_BOLIG_ARL_SAML) 
+
+Group BY EsreJDNR , bygningsnr , BYG_BOLIG_ARL_SAML, ERHV_ARL_SAML, BYG_ANVEND_KODE 
+Order BY EsreJDNR, bygningsnr
 
 25:
 'Bygningsniveau - Bygning(er) med et ejendomsnummer der ikke' 
@@ -304,7 +42,7 @@ Order by kommune_nr, Ejd_nr, CO10100T.BYG_NR
 '-----------------------------------------------------------'
 
 SELECT A.KOMMUNE_NR AS [Kommune nr.], A.EJD_NR AS [Ejendoms nr. (felt 101)], A.BYG_NR AS [Bygningsnr.]
-FROM CO10100T as a
+FROM CO40100T as a
 WHERE NOT EXISTS
    (SELECT *
    FROM CO11500T as b  
