@@ -1,3 +1,0 @@
-/* 
-Test af dannelse af fil
-*/
